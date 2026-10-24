@@ -1,0 +1,17 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment & Secrets
+.env
+src/config/database.php
+
+# Uploads (Don't push user images to GitHub)
+/public/assets/uploads/
+
+# Compiled CSS (Optional, but good practice)
+/public/assets/css/output.css
+
+# OS generated files
+.DS_Store
+Thumbs.db
