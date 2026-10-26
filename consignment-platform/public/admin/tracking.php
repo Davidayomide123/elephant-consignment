@@ -1,7 +1,7 @@
 <?php
 // public/admin/tracking.php
 require_once __DIR__ . '/../../src/includes/auth.php';
-require_once __DIR__ . '/../../src/includes/mailer.php'; // Include the email function
+require_once __DIR__ . '/../../src/includes/gmail_mailer.php'; // Use the new Gmail Mailer
 requireRole('admin');
 
 $db = getDb();
@@ -54,7 +54,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_shipment') {
     $dest_lat = !empty($_POST['dest_lat']) ? (float)$_POST['dest_lat'] : null;
     $dest_lng = !empty($_POST['dest_lng']) ? (float)$_POST['dest_lng'] : null;
 
-    $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt = $db->prepare("SELECT id, display_name FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
@@ -67,6 +67,22 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_shipment') {
         $stmt = $db->prepare("INSERT INTO shipment_logs (shipment_id, location, status_message, location_lat, location_lng) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$shipment_id, $origin, "Package received and processed at origin port.", $origin_lat, $origin_lng]);
         
+        // --- SEND CREATION EMAIL ---
+        $subject = "Shipment Created: {$code}";
+        $body = "
+            <div style='font-family: Arial, sans-serif; background:#f5f4f1; padding:40px;'>
+                <div style='max-width:600px; margin:0 auto; background:#eae7e1; padding:30px; border-radius:20px;'>
+                    <h2 style='color:#6f8569;'>Hello {$user['display_name']},</h2>
+                    <p>Your shipment for <strong>{$item_name}</strong> has been registered.</p>
+                    <p>Tracking Code: <strong>{$code}</strong></p>
+                    <p>Origin: {$origin} <br> Destination: {$destination}</p>
+                    <a href='http://localhost:8000/dashboard/consignor.php' style='background:#6f8569; color:white; padding:12px 24px; border-radius:25px; text-decoration:none; display:inline-block; margin-top:15px;'>Track Shipment</a>
+                </div>
+            </div>
+        ";
+        sendGmailEmail($email, $user['display_name'], $subject, $body);
+        // ---------------------------
+
         $message = "Shipment created successfully! Tracking Code: <strong class='font-mono text-lg text-sage-600'>$code</strong>";
     } else {
         $error = "No user found with that email address.";
@@ -111,15 +127,32 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_log') {
             $stmt = $db->prepare("INSERT INTO shipment_logs (shipment_id, location, status_message, is_alert, location_lat, location_lng, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$shipment_id, $location, $status_message, $is_alert, $lat, $lng, $image_path]);
             
-            // --- SEND EMAIL IF ALERT IS TRIGGERED ---
-            if ($is_alert === 1) {
-                $userStmt = $db->prepare("SELECT u.email, u.display_name, s.tracking_code FROM users u JOIN shipments s ON s.user_id = u.id WHERE s.id = ?");
-                $userStmt->execute([$shipment_id]);
-                $userInfo = $userStmt->fetch();
+            // --- SEND EMAIL FOR EVERY UPDATE ---
+            $userStmt = $db->prepare("SELECT u.email, u.display_name, s.tracking_code FROM users u JOIN shipments s ON s.user_id = u.id WHERE s.id = ?");
+            $userStmt->execute([$shipment_id]);
+            $userInfo = $userStmt->fetch();
+            
+            if ($userInfo) {
+                $subject = "Shipment Update: {$userInfo['tracking_code']} at {$location}";
+                $alertStyle = $is_alert ? "background:#fdf2f2; border-left:4px solid #ef4444; padding:15px; margin:20px 0;" : "padding:15px; margin:20px 0;";
+                $alertLabel = $is_alert ? "<p style='color:#b91c1c; font-weight:bold; margin:0 0 5px 0;'>Action Required</p>" : "";
                 
-                if ($userInfo) {
-                    sendAlertEmail($userInfo['email'], $userInfo['display_name'], $userInfo['tracking_code'], $location, $status_message);
-                }
+                $body = "
+                    <div style='font-family: Arial, sans-serif; background:#f5f4f1; padding:40px;'>
+                        <div style='max-width:600px; margin:0 auto; background:#eae7e1; padding:30px; border-radius:20px;'>
+                            <h2 style='color:#6f8569;'>Hello {$userInfo['display_name']},</h2>
+                            <p>Your package (<strong>{$userInfo['tracking_code']}</strong>) has arrived at <strong>{$location}</strong>.</p>
+                            
+                            <div style='{$alertStyle}'>
+                                {$alertLabel}
+                                <p style='margin:0;'>{$status_message}</p>
+                            </div>
+
+                            <a href='http://localhost:8000/dashboard/consignor.php' style='background:#6f8569; color:white; padding:12px 24px; border-radius:25px; text-decoration:none; display:inline-block;'>View Dashboard</a>
+                        </div>
+                    </div>
+                ";
+                sendGmailEmail($userInfo['email'], $userInfo['display_name'], $subject, $body);
             }
             // ----------------------------------------
 

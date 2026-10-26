@@ -1,6 +1,7 @@
 <?php
 // src/includes/auth.php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/gmail_mailer.php'; // Include the Gmail Mailer
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -22,6 +23,27 @@ function registerUser($email, $password, $displayName) {
     
     try {
         $stmt->execute([$email, $hash, $displayName]);
+        
+        // --- SEND WELCOME EMAIL ---
+        $subject = "Welcome to Elephant Logistics, {$displayName}!";
+        $body = "
+            <div style='font-family: Arial, sans-serif; background-color: #f5f4f1; padding: 40px; color: #3f3c34;'>
+                <div style='max-width: 600px; margin: 0 auto; background-color: #eae7e1; padding: 30px; border-radius: 20px; border: 1px solid #d6d1c7;'>
+                    <h2 style='color: #6f8569; margin-top: 0;'>Hello {$displayName},</h2>
+                    <p>Welcome to the herd! Your account has been created successfully.</p>
+                    <p>You can now log in to track your shipments, receive alerts, and manage your consignments.</p>
+                    
+                    <a href='http://localhost:8000/auth/login.php' style='display: inline-block; background-color: #6f8569; color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; margin-top: 15px;'>Go to Login</a>
+                    
+                    <p style='font-size: 12px; color: #948d7e; margin-top: 30px;'>Breathe in. Breathe out. Welcome aboard.</p>
+                </div>
+            </div>
+        ";
+        
+        // Send the email (using the function we created)
+        sendGmailEmail($email, $displayName, $subject, $body);
+        // --------------------------
+
         return true;
     } catch (Exception $e) {
         return "Registration failed. Please try again.";

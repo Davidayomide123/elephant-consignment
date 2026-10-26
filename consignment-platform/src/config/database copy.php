@@ -2,11 +2,11 @@
 // src/config/database.php
 
 function getDb(): PDO {
-    // Standard local settings
-    $host = '127.0.0.1';
-    $db   = 'consignment_db';
-    $user = 'root';
-    $pass = 'YOUR_DB_PASSWORD_HERE';  // CHANGE THIS if you set a root password in MySQL Configurator!
+    // InfinityFree settings
+    $host = 'sql203.infinityfree.com';
+    $db   = 'if0_43277377_elephant_db'; // <--- CHANGE TO YOUR FULL DB NAME
+    $user = 'if0_43277377';             // <--- YOUR USERNAME
+    $pass = 'Bzfv2G65SabrWB8s'; // <--- YOUR INFINITYFREE PASSWORD
     $charset = 'utf8mb4';
 
     $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
